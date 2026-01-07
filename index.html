@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nexus Countdown</title>
+  <style>
+    body {
+      background-color: #1e1e1e;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    .milestone {
+      background-color: #2c2c2c;
+      margin: 20px auto;
+      border-radius: 10px;
+      width: 800px;
+      text-align: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .milestone-header {
+      background-color: #333;
+      cursor: pointer;
+      padding: 10px 20px;
+      font-size: 20pt;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 10px 10px 0 0;
+    }
+    .milestone-title {
+      color: #00ffff;
+      width: 100%;
+      text-align: center;
+    }
+    .milestone-time {
+      color: #f7f065;
+      font-size: 16pt;
+      padding-bottom: 10px;
+    }
+    .milestone-body {
+      display: none;
+      padding: 20px;
+    }
+    input, select {
+      background: #333;
+      color: #fff;
+      border: 1px solid #00ffff;
+      padding: 5px;
+      font-size: 14pt;
+    }
+    label {
+      font-size: 16pt;
+      color: #ff9933;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      background-color: #ff9933;
+      color: #1e1e1e;
+      font-size: 14pt;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .remove-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 14pt;
+      background: #ff9933;
+      color: #1e1e1e;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .move-up, .move-down {
+      position: absolute;
+      top: 10px;
+      background-color: grey;
+      color: #1e1e1e;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .move-up { left: 10px; margin-right: 8px; }
+    .move-down { left: 70px; }
+  </style>
+  <style>
+    .milestone.dragging {
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="font-size: 32pt; margin-bottom: 30px; color: #00ffff;">Milestone Countdown</h1>
+
+  <div id="milestones-container"></div>
+
+  <button onclick="addMilestone()">+ Add Milestone</button>
+  <button onclick="window.print()">Print / Export</button>
+  <button onclick="toggleTheme()">Toggle Dark/Light Mode</button>
+
+  <script>
+    const MAX_MILESTONES = 20;
+    let milestoneCount = 0;
+    const milestoneEndDates = [];
+    const container = document.getElementById('milestones-container');
+
+    const holidayCache = {};
+    function generateHolidaysForYear(year) {
+      const fixed = [
+        [`${year}-01-01`, "New Year's Day"],
+        [`${year}-06-19`, "Juneteenth"],
+        [`${year}-07-04`, "Independence Day"],
+        [`${year}-11-11`, "Veterans Day"],
+        [`${year}-12-25`, "Christmas Day"]
+      ];
+      const holidays = fixed.map(([date, name]) => ({ date: new Date(date), name }));
+      holidayCache[year] = holidays;
+      return holidays;
+    }
+
+    function getHolidays(startDate, endDate) {
+      const years = [];
+      for (let y = startDate.getFullYear(); y <= endDate.getFullYear(); y++) {
+        if (!holidayCache[y]) generateHolidaysForYear(y);
+        years.push(...holidayCache[y]);
+      }
+      return years.filter(h => h.date >= startDate && h.date <= endDate);
+    }
+
+    function isBusinessDay(date, holidays) {
+      const day = date.getDay();
+      return !(day === 0 || day === 6) && !holidays.some(h => h.date.toDateString() === date.toDateString());
+    }
+
+    function calculateBusinessDays(start, end, holidays) {
+      let count = 0;
+      let date = new Date(start);
+      while (date <= end) {
+        if (isBusinessDay(date, holidays)) count++;
+        date.setDate(date.getDate() + 1);
+      }
+      return count;
+    }
+
+    function formatHolidayDate(date) {
+      return date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function togglePanel(id) {
+      const panel = document.getElementById(`${id}-body`);
+      panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function saveMilestoneData() {
+      const all = [...document.querySelectorAll('.milestone')].map(panel => {
+        const id = panel.id;
+        return {
+          id,
+          title: document.getElementById(`${id}-titleInput`).value,
+          start: document.getElementById(`${id}-startDate`).value,
+          end: document.getElementById(`${id}-endDate`).value,
+          buffer: document.getElementById(`${id}-buffer`).value,
+          vacation: document.getElementById(`${id}-vacation`).value,
+          holidays: document.getElementById(`${id}-holidays`).checked
+        };
+      });
+      localStorage.setItem('milestones', JSON.stringify(all));
+    }
+
+    function restoreMilestones() {
+      const saved = JSON.parse(localStorage.getItem('milestones') || '[]');
+      saved.forEach(m => addMilestone(m));
+    }
+
+    let draggedElement = null;
+
+    container.addEventListener('dragstart', (e) => {
+      if (e.target.classList.contains('milestone')) {
+        draggedElement = e.target;
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      }
+    });
+
+    container.addEventListener('dragend', (e) => {
+      if (draggedElement) {
+        draggedElement.classList.remove('dragging');
+        draggedElement = null;
+        saveMilestoneData();
+      }
+    });
+
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const afterElement = getDragAfterElement(container, e.clientY);
+      if (afterElement == null) {
+        container.appendChild(draggedElement);
+      } else {
+        container.insertBefore(draggedElement, afterElement);
+      }
+    });
+
+    function getDragAfterElement(container, y) {
+      const draggableElements = [...container.querySelectorAll('.milestone:not(.dragging)')];
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function addMilestone(data = null) {
+      if (milestoneCount >= MAX_MILESTONES) return alert('Maximum milestones reached.');
+      milestoneCount++;
+      const id = `milestone${milestoneCount}`;
+      const today = new Date();
+
+      const getNextMonday = (date) => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = (8 - day) % 7;
+        d.setDate(d.getDate() + diff);
+        return d;
+      };
+
+      const getDateAfterBusinessDays = (start, days) => {
+        const result = new Date(start);
+        let count = 0;
+        while (count < days) {
+          result.setDate(result.getDate() + 1);
+          if (isBusinessDay(result, [])) count++;
+        }
+        return result;
+      };
+
+      const baseStart = data?.start || (milestoneEndDates.length ? getNextMonday(milestoneEndDates[milestoneEndDates.length - 1]) : today);
+      const baseStartDate = new Date(baseStart);
+      const milestoneDate = new Date(data?.end || getDateAfterBusinessDays(baseStartDate, 15));
+      milestoneEndDates.push(milestoneDate);
+
+      const defaultStart = baseStartDate.toISOString().split('T')[0];
+      const defaultEnd = milestoneDate.toISOString().split('T')[0];
+      const label = data?.title || `Milestone ${milestoneCount}`;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'milestone';
+      wrapper.id = id;
+      wrapper.setAttribute('draggable', 'true');
+
+      wrapper.innerHTML = `
+        <button class="remove-btn" onclick="removeMilestone('${id}')">&minus;</button>
+        <button class="move-up" onclick="moveMilestone('${id}', 'up')">&uarr;</button>
+        <button class="move-down" onclick="moveMilestone('${id}', 'down')">&darr;</button>
+        <div class="milestone-header" onclick="togglePanel('${id}')">
+          <div class="milestone-title" id="${id}-title">${label}</div>
+        </div>
+        <div id="${id}-countdown" class="milestone-time">Loading...</div>
+        <div class="milestone-body" id="${id}-body">
+          <div class="settings-panel">
+            <label>Start Date:</label><br>
+            <input type="date" id="${id}-startDate" value="${defaultStart}"><br><br>
+            <label>End Date:</label><br>
+            <input type="date" id="${id}-endDate" value="${defaultEnd}"><br><br>
+            <label>Buffer Days:</label><br>
+            <input type="number" id="${id}-buffer" value="${data?.buffer || 2}"><br><br>
+            <label>Vacation Days:</label><br>
+            <input type="number" id="${id}-vacation" value="${data?.vacation || 5}"><br><br>
+            <label>Milestone Title:</label><br>
+            <input type="text" id="${id}-titleInput" value="${label}"><br><br>
+            <label><input type="checkbox" id="${id}-holidays" ${data?.holidays === false ? '' : 'checked'}> Exclude Holidays</label>
+          </div>
+          <div id="${id}-summary" style="font-size: 14pt; color: #ccc; margin-bottom: 10px;"></div>
+          <div id="${id}-holidays-list" style="font-size: 12pt; color: #aaa;"></div>
+        </div>
+      `;
+
+      container.appendChild(wrapper);
+
+      function update() {
+        const now = new Date();
+        const startDate = new Date(document.getElementById(`${id}-startDate`).value);
+        const endDate = new Date(document.getElementById(`${id}-endDate`).value + 'T23:59:59');
+        const buffer = parseInt(document.getElementById(`${id}-buffer`).value, 10) || 0;
+        const vacation = parseInt(document.getElementById(`${id}-vacation`).value, 10) || 0;
+        const exclude = document.getElementById(`${id}-holidays`).checked;
+        const title = document.getElementById(`${id}-titleInput`).value;
+
+        document.getElementById(`${id}-title`).textContent = title;
+
+        const holidays = getHolidays(startDate, endDate);
+        const active = exclude ? holidays : [];
+
+        const total = calculateBusinessDays(startDate, endDate, active);
+        const adjusted = total - buffer - vacation;
+
+        const seconds = Math.floor((endDate - now) / 1000);
+        const hours = Math.floor(seconds / 3600) % 24;
+        const secs = seconds % 60;
+
+        document.getElementById(`${id}-countdown`).textContent = `${adjusted} days\n${hours} hours\n${secs} seconds`;
+        document.getElementById(`${id}-summary`).textContent = `Business Days: ${total} | Buffer: ${buffer} | Vacation: ${vacation} | Holidays: ${holidays.length}`;
+        document.getElementById(`${id}-holidays-list`).innerHTML = holidays.map(h => `• ${h.name} – ${formatHolidayDate(h.date)}`).join('<br>') || 'No upcoming holidays';
+        saveMilestoneData();
+      }
+
+      ['startDate','endDate','buffer','vacation','holidays','titleInput'].forEach(type => {
+        document.getElementById(`${id}-${type}`).addEventListener('input', update);
+      });
+
+      update();
+      setInterval(update, 1000);
+    }
+
+    function removeMilestone(id) {
+      if (confirm('Are you sure you want to remove this milestone?')) {
+        document.getElementById(id).remove();
+        saveMilestoneData();
+      }
+    }
+
+    function moveMilestone(id, direction) {
+      const element = document.getElementById(id);
+      if (!element) return;
+      if (direction === 'up' && element.previousElementSibling) {
+        container.insertBefore(element, element.previousElementSibling);
+      } else if (direction === 'down' && element.nextElementSibling) {
+        container.insertBefore(element.nextElementSibling, element);
+      }
+      saveMilestoneData();
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.style.backgroundColor === 'rgb(30, 30, 30)';
+      document.body.style.backgroundColor = isDark ? '#ffffff' : '#1e1e1e';
+      document.body.style.color = isDark ? '#000000' : '#ffffff';
+    }
+
+    restoreMilestones();
+    if (milestoneCount === 0) addMilestone();
+  </script>
+</body>
+</html>

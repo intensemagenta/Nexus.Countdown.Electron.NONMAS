@@ -1,0 +1,53 @@
+{
+  "name": "nexus-countdown-electron",
+  "version": "1.4.15",
+  "description": "Nexus Countdown Electron App",
+  "main": "electron-main.js",
+  "scripts": {
+    "build:dir": "electron-builder --mac dir",
+    "build:dmg": "electron-builder --mac dmg",
+    "build:electron:mas": "bash ../../scripts/mas/build-electron-mas.sh",
+    "lint": "echo \"no lint yet\""
+  },
+  "devDependencies": {
+    "electron": "^33.4.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.nexuscountdown",
+    "productName": "Nexus Countdown",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "mas"
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "minimumSystemVersion": "12.0",
+      "icon": "build/icons/icon.icns"
+    },
+    "mas": {
+      "identity": "Adam Parsons (T6YG6KXA9D)",
+      "provisioningProfile": "../../cert/Nexus_Countdown.provisionprofile"
+    },
+    "afterPack": "../../scripts/mas/remove-squirrel-afterpack.js",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-main.js",
+      "preload.js",
+      "package.json",
+      "!**/node_modules/**/*",
+      "!**/node_modules",
+      {
+        "from": "../../web",
+        "to": "web",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  }
+}

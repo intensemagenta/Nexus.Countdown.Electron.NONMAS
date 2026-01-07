@@ -1,0 +1,29 @@
+{
+  "name": "nexus-countdown",
+  "version": "1.4.15",
+  "description": "Nexus Countdown",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "electron electron/main.js",
+    "build:mac": "electron-builder --mac dmg",
+    "verify:electron:bundle": "node scripts/verify-electron-bundle.js",
+    "lint": "echo \"no lint yet\"",
+    "build:electron:mas": "cd apps/electron && npm run build:electron:mas",
+    "postbuild:electron:mas": "bash -c 'APP=$(node scripts/mas/paths-electron.js) && PROFILE=$(node scripts/mas/detect-electron-profile.js) && bash scripts/mas/embed-electron-profiles.sh \"$APP\" \"$PROFILE\" && bash scripts/mas/resign-electron-mas.sh \"$APP\"'",
+    "pkg:electron:mas": "bash -c 'APP=$(node scripts/mas/paths-electron.js) && bash scripts/mas/pkg-electron-mas.sh'",
+    "verify:electron:mas": "node scripts/mas/verify-electron-mas.js",
+    "mas:electron": "npm run build:electron:mas && npm run postbuild:electron:mas && npm run pkg:electron:mas && npm run verify:electron:mas",
+    "mas:electron:build": "bash scripts/mas/build-electron-mas.sh",
+    "mas:electron:verify": "node scripts/mas/verify-electron-mas.js",
+    "mas:electron:full": "npm run mas:electron:build && npm run mas:electron:verify",
+    "build:signed:dmg": "bash scripts/build-signed-dmg.sh",
+    "debug:electron:signing": "node scripts/print-signing-config.js"
+  },
+  "devDependencies": {
+    "electron": "^33.4.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "extends": null
+  }
+}
