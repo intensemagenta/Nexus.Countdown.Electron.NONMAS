@@ -1,5 +1,7 @@
 # Complete Guide: Building and Notarizing macOS Apps for Distribution Outside the Mac App Store
 
+Jan 11, 2026
+
 This guide provides a complete, step-by-step recipe for building, signing, and notarizing macOS applications for distribution outside the Mac App Store. This is essential for apps distributed via direct download, websites, or third-party platforms.
 
 ---
@@ -17,6 +19,7 @@ This guide provides a complete, step-by-step recipe for building, signing, and n
 9. [Verification and Testing](#verification-and-testing)
 10. [Troubleshooting](#troubleshooting)
 11. [Automation Scripts](#automation-scripts)
+12. [Reusing Scripts in Other Projects](#reusing-scripts-in-other-projects)
 
 ---
 
@@ -911,6 +914,142 @@ spctl -a -vv -t install "$DMG_PATH"
 
 echo "✅ Complete! Notarized DMG: $DMG_PATH"
 ```
+
+---
+
+## Reusing Scripts in Other Projects
+
+The scripts in this project (`build-for-notarization.sh`, `notarize-dmg.sh`, `verify-notarization-ready.sh`) are reusable but contain project-specific values that need to be customized.
+
+**Note:** These scripts are also available as reusable templates in the `Recipe_Scripts/` directory. You can copy them from there to your new project's `scripts/` directory and customize them as needed.
+
+### What to Customize
+
+When adapting these scripts for another project, you need to update the following values:
+
+#### 1. **App Name**
+Replace all instances of `"Nexus Countdown"` with your app name:
+- App bundle name: `"Nexus Countdown.app"` → `"YourApp.app"`
+- DMG patterns: `"Nexus Countdown*.dmg"` → `"YourApp*.dmg"`
+- Zip file: `"Nexus Countdown-for-notarization.zip"` → `"YourApp-for-notarization.zip"`
+
+#### 2. **Developer Identity**
+Replace the certificate identity:
+- `"Developer ID Application: Adam Parsons (T6YG6KXA9D)"` → `"Developer ID Application: Your Name (YOUR_TEAM_ID)"`
+- `"Adam Parsons (T6YG6KXA9D)"` → `"Your Name (YOUR_TEAM_ID)"`
+
+#### 3. **Team ID**
+Replace the Team ID:
+- `TEAM_ID="T6YG6KXA9D"` → `TEAM_ID="YOUR_TEAM_ID"`
+
+#### 4. **Project Structure**
+Adjust paths if your project structure differs:
+- `apps/electron/dist/non_mas` → Your output directory
+- `apps/electron` → Your electron app directory (if different)
+- `build/icons/icon.icns` → Your icon path
+
+#### 5. **Bundle Identifier**
+If your scripts check bundle IDs, update:
+- `com.nexuscountdown` → `com.yourcompany.yourapp`
+
+### Making Scripts Configurable
+
+For better reusability, you can make scripts accept environment variables:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# Configuration (can be overridden by environment variables)
+APP_NAME="${APP_NAME:-YourApp}"
+TEAM_ID="${TEAM_ID:-YOUR_TEAM_ID}"
+DEVELOPER_NAME="${DEVELOPER_NAME:-Your Name}"
+OUTPUT_DIR="${OUTPUT_DIR:-dist/non_mas}"
+
+# Build identity from variables
+FULL_IDENTITY="Developer ID Application: ${DEVELOPER_NAME} (${TEAM_ID})"
+IDENTITY="${DEVELOPER_NAME} (${TEAM_ID})"
+
+# Use variables throughout the script
+APP_PATH="${OUTPUT_DIR}/mac-arm64/${APP_NAME}.app"
+DMG_PATTERN="${OUTPUT_DIR}/${APP_NAME}*.dmg"
+ZIP_PATH="${OUTPUT_DIR}/${APP_NAME}-for-notarization.zip"
+```
+
+Then use the scripts like:
+```bash
+APP_NAME="MyApp" \
+TEAM_ID="ABC123XYZ" \
+DEVELOPER_NAME="John Doe" \
+./scripts/build-for-notarization.sh
+```
+
+### Recommended Approach
+
+**Option 1: Create a config file**
+Create `scripts/notarization-config.sh`:
+```bash
+#!/bin/bash
+# Configuration for notarization scripts
+export APP_NAME="YourApp"
+export TEAM_ID="YOUR_TEAM_ID"
+export DEVELOPER_NAME="Your Name"
+export OUTPUT_DIR="dist/non_mas"
+export APPLE_ID="${APPLE_ID:-your-email@example.com}"
+```
+
+Source it in your scripts:
+```bash
+source "$(dirname "$0")/notarization-config.sh"
+```
+
+**Option 2: Use the template in this guide**
+The "Automation Scripts" section above provides a clean template you can copy and customize. This is often easier than modifying the existing scripts.
+
+**Option 3: Copy and customize**
+1. Copy the scripts from `Recipe_Scripts/` (or `scripts/`) to your project's `scripts/` directory
+2. Use find/replace to update all project-specific values
+3. Test thoroughly with your app
+
+### Scripts to Use
+
+For a new project, you'll want these three scripts:
+
+1. **`build-for-notarization.sh`** - Builds and signs the app bundle and DMG
+   - Customize: App name, identity, paths, icon location
+
+2. **`notarize-dmg.sh`** - Submits DMG for notarization and staples
+   - Customize: App name, Team ID, DMG patterns
+
+3. **`verify-notarization-ready.sh`** - Verifies app is ready for notarization
+   - Customize: App name, output directory, bundle ID checks
+
+### Package.json Scripts
+
+Add these npm scripts to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "build:for-notarization": "bash scripts/build-for-notarization.sh",
+    "verify:notarization-ready": "bash scripts/verify-notarization-ready.sh",
+    "notarize": "bash scripts/notarize-dmg.sh",
+    "notarize:status": "bash scripts/notarize-dmg.sh --status",
+    "notarize:staple": "bash scripts/notarize-dmg.sh --staple",
+    "notarize:wait": "bash scripts/notarize-dmg.sh --wait"
+  }
+}
+```
+
+### Quick Start for New Project
+
+1. Copy the three scripts from `Recipe_Scripts/` (or `scripts/`) to your project's `scripts/` directory
+2. Update all project-specific values (app name, team ID, identity, paths)
+3. Create entitlements files in `build/` directory
+4. Add npm scripts to `package.json`
+5. Test with `npm run build:for-notarization`
+6. Verify with `npm run verify:notarization-ready`
+7. Notarize with `npm run notarize`
 
 ---
 
