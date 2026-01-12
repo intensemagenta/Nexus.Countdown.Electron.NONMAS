@@ -17,6 +17,12 @@
     "mas:electron:verify": "node scripts/mas/verify-electron-mas.js",
     "mas:electron:full": "npm run mas:electron:build && npm run mas:electron:verify",
     "build:signed:dmg": "bash scripts/build-signed-dmg.sh",
+    "build:for-notarization": "bash scripts/build-for-notarization.sh",
+    "verify:notarization-ready": "bash scripts/verify-notarization-ready.sh",
+    "notarize": "bash scripts/notarize-dmg.sh",
+    "notarize:status": "bash scripts/notarize-dmg.sh --status",
+    "notarize:staple": "bash scripts/notarize-dmg.sh --staple",
+    "notarize:wait": "bash scripts/notarize-dmg.sh --wait",
     "debug:electron:signing": "node scripts/print-signing-config.js"
   },
   "devDependencies": {

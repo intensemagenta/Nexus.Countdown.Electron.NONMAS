@@ -31,7 +31,6 @@
       "identity": "Adam Parsons (T6YG6KXA9D)",
       "provisioningProfile": "../../cert/Nexus_Countdown.provisionprofile"
     },
-    "afterPack": "../../scripts/mas/remove-squirrel-afterpack.js",
     "directories": {
       "output": "dist"
     },
